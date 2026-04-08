@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { stores, courses, bookings } from "@/lib/db/schema";
 import { bookingSchema } from "@/lib/validations";
 import { getAvailability, createBookingEvent, deleteEvent } from "@/lib/google-calendar";
-import { sendConfirmation } from "@/lib/email";
 
 // Simple in-memory rate limiter: 10 requests per hour per IP
 const rateLimitMap = new Map<string, number[]>();
@@ -15,6 +14,11 @@ function checkRateLimit(ip: string): boolean {
   const timestamps = (rateLimitMap.get(ip) ?? []).filter((t) => t > hourAgo);
   rateLimitMap.set(ip, timestamps);
   return timestamps.length < 10;
+}
+
+// Calendar連携がダミーIDの場合はスキップ
+function isRealCalendarId(calendarId: string): boolean {
+  return !calendarId.endsWith("@c5med.example.com");
 }
 
 export async function POST(request: NextRequest) {
@@ -64,28 +68,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Course not found" }, { status: 404 });
   }
 
-  // Live FreeBusy check (no cache)
   const bookedAt = new Date(data.bookedAt);
   const endAt = new Date(bookedAt.getTime() + course.durationMin * 60_000);
-  const dateStr = data.bookedAt.slice(0, 10);
+  const useCalendar = isRealCalendarId(store.calendarId);
 
-  const busyPeriods = await getAvailability(
-    store.calendarId,
-    dateStr,
-    store.timezone
-  );
-
-  const isConflict = busyPeriods.some((busy) => {
-    const busyStart = new Date(busy.start).getTime();
-    const busyEnd = new Date(busy.end).getTime();
-    return bookedAt.getTime() < busyEnd && endAt.getTime() > busyStart;
-  });
-
-  if (isConflict) {
-    return NextResponse.json(
-      { error: "この時間帯はすでに予約が入っています。別の時間をお選びください。" },
-      { status: 409 }
+  // Live FreeBusy check (no cache) — skip if dummy calendar ID
+  if (useCalendar) {
+    const dateStr = data.bookedAt.slice(0, 10);
+    const busyPeriods = await getAvailability(
+      store.calendarId,
+      dateStr,
+      store.timezone
     );
+
+    const isConflict = busyPeriods.some((busy) => {
+      const busyStart = new Date(busy.start).getTime();
+      const busyEnd = new Date(busy.end).getTime();
+      return bookedAt.getTime() < busyEnd && endAt.getTime() > busyStart;
+    });
+
+    if (isConflict) {
+      return NextResponse.json(
+        { error: "この時間帯はすでに予約が入っています。別の時間をお選びください。" },
+        { status: 409 }
+      );
+    }
   }
 
   // Record rate limit hit
@@ -93,26 +100,28 @@ export async function POST(request: NextRequest) {
   timestamps.push(Date.now());
   rateLimitMap.set(ip, timestamps);
 
-  // Create Calendar event
-  let eventId: string;
-  try {
-    eventId = await createBookingEvent(store.calendarId, {
-      storeName: store.name,
-      courseName: course.name,
-      customerName: data.name,
-      email: data.email,
-      phone: data.phone,
-      note: data.note,
-      startTime: data.bookedAt,
-      endTime: endAt.toISOString(),
-      timezone: store.timezone,
-    });
-  } catch (err) {
-    console.error("Calendar event creation failed:", err);
-    return NextResponse.json(
-      { error: "予約の登録に失敗しました。" },
-      { status: 500 }
-    );
+  // Create Calendar event — skip if dummy calendar ID
+  let eventId: string | null = null;
+  if (useCalendar) {
+    try {
+      eventId = await createBookingEvent(store.calendarId, {
+        storeName: store.name,
+        courseName: course.name,
+        customerName: data.name,
+        email: data.email,
+        phone: data.phone,
+        note: data.note,
+        startTime: data.bookedAt,
+        endTime: endAt.toISOString(),
+        timezone: store.timezone,
+      });
+    } catch (err) {
+      console.error("Calendar event creation failed:", err);
+      return NextResponse.json(
+        { error: "予約の登録に失敗しました。" },
+        { status: 500 }
+      );
+    }
   }
 
   // Insert booking log into Neon
@@ -134,26 +143,17 @@ export async function POST(request: NextRequest) {
     bookingId = inserted.id;
   } catch (err) {
     console.error("DB insert failed, rolling back calendar event:", err);
-    await deleteEvent(store.calendarId, eventId).catch(() => {});
+    if (eventId) {
+      await deleteEvent(store.calendarId, eventId).catch(() => {});
+    }
     return NextResponse.json(
       { error: "予約の登録に失敗しました。" },
       { status: 500 }
     );
   }
 
-  // Send confirmation email (best-effort)
-  try {
-    await sendConfirmation({
-      email: data.email,
-      name: data.name,
-      storeName: store.name,
-      courseName: course.name,
-      price: course.price,
-      bookedAt: data.bookedAt,
-    });
-  } catch (err) {
-    console.error("Email send failed:", err);
-  }
+  // TODO: メール送信を有効化する
+  // sendConfirmation({ email, name, storeName, courseName, price, bookedAt })
 
   return NextResponse.json({ bookingId, eventId }, { status: 201 });
 }

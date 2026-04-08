@@ -52,6 +52,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ slots: [] });
   }
 
+  // ダミーカレンダーIDの場合はFreeBusyをスキップし全スロットを返す
+  if (store.calendarId.endsWith("@c5med.example.com")) {
+    return NextResponse.json({ slots });
+  }
+
   // FreeBusy cache (60s)
   const cacheKey = `${store.calendarId}:${date}`;
   let busyPeriods;
