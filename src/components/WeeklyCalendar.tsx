@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 type Slot = { start: string; end: string };
 type WeekSlots = Record<string, Slot[]>;
 
-const DOW_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
+const DOW_LABELS_FULL = ["日", "月", "火", "水", "木", "金", "土"];
 
 function pad(n: number) {
   return n.toString().padStart(2, "0");
@@ -13,15 +13,6 @@ function pad(n: number) {
 
 function formatDateStr(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function getMonday(base: Date): Date {
-  const d = new Date(base);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
 }
 
 function addDays(d: Date, n: number): Date {
@@ -43,20 +34,19 @@ function formatTime(iso: string) {
 export function WeeklyCalendar({
   storeId,
   courseId,
-  businessHoursClosedDays,
   selectedSlot,
   onSelect,
 }: {
   storeId: string;
   courseId: number;
-  businessHoursClosedDays?: string[];
   selectedSlot: string | null;
   onSelect: (startTime: string) => void;
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [weekStart, setWeekStart] = useState(() => getMonday(today));
+  // Start from today, not Monday
+  const [weekStart, setWeekStart] = useState(() => new Date(today));
   const [weekSlots, setWeekSlots] = useState<WeekSlots>({});
   const [allSlots, setAllSlots] = useState<WeekSlots>({});
   const [loading, setLoading] = useState(false);
@@ -65,7 +55,7 @@ export function WeeklyCalendar({
   const maxDate = new Date(today);
   maxDate.setMonth(maxDate.getMonth() + 2);
 
-  const canPrev = weekStart > today;
+  const canPrev = weekStart.getTime() > today.getTime();
   const canNext = addDays(weekStart, 7) <= maxDate;
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -82,8 +72,6 @@ export function WeeklyCalendar({
       const data = await res.json();
       const slots = data.slots as WeekSlots;
       setWeekSlots(slots);
-
-      // Build allSlots (all possible time labels from the slots that exist)
       setAllSlots(slots);
     } catch {
       setError("空き状況の取得に失敗しました");
@@ -171,7 +159,10 @@ export function WeeklyCalendar({
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => setWeekStart(addDays(weekStart, -7))}
+          onClick={() => {
+            const prev = addDays(weekStart, -7);
+            setWeekStart(prev < today ? new Date(today) : prev);
+          }}
           disabled={!canPrev}
           className="w-8 h-8 rounded-full border border-[#e8e4df] flex items-center justify-center text-[#6b6560] hover:bg-[#f5f0eb] hover:border-[#e2cf8e] disabled:opacity-30 disabled:hover:bg-transparent transition-all"
         >
@@ -197,33 +188,30 @@ export function WeeklyCalendar({
           <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px mb-px">
             <div /> {/* empty corner */}
             {dates.map((d, i) => {
-              const isToday = formatDateStr(d) === formatDateStr(today);
-              const isClosed =
-                (allSlots[dateStrs[i]] ?? []).length === 0 &&
-                !loading;
-              const dow = (i + 1) % 7; // 0=Sun in display, but our array is Mon-Sun
+              const dateStr = dateStrs[i];
+              const isToday = dateStr === formatDateStr(today);
+              const isClosed = (allSlots[dateStr] ?? []).length === 0;
+              const dow = d.getDay(); // 0=Sun, 6=Sat
 
               return (
                 <div
-                  key={dateStrs[i]}
+                  key={dateStr}
                   className={`text-center py-2 ${isClosed ? "bg-[#f5f2ed]" : ""}`}
                 >
                   <div
                     className={`text-[11px] font-medium ${
-                      dow === 6
+                      dow === 0
                         ? "text-[#c66]"
-                        : dow === 5
+                        : dow === 6
                           ? "text-[#668ebc]"
                           : "text-[#9e9893]"
                     }`}
                   >
-                    {DOW_LABELS[i]}
+                    {DOW_LABELS_FULL[dow]}
                   </div>
                   <div
                     className={`text-[13px] font-semibold mt-0.5 ${
-                      isToday
-                        ? "text-[#a88b2f]"
-                        : "text-[#3a3632]"
+                      isToday ? "text-[#a88b2f]" : "text-[#3a3632]"
                     }`}
                   >
                     {d.getMonth() + 1}/{d.getDate()}
@@ -239,7 +227,7 @@ export function WeeklyCalendar({
           {/* Time rows */}
           {allTimeLabels.length === 0 ? (
             <div className="text-center py-8 text-[#9e9893] text-sm">
-              この週は空きがありません
+              この期間は空きがありません
             </div>
           ) : (
             <div className="border border-[#e8e4df] rounded-lg overflow-hidden">
@@ -256,18 +244,19 @@ export function WeeklyCalendar({
                   </div>
 
                   {/* Day cells */}
-                  {dateStrs.map((dateStr, colIdx) => {
-                    const isClosed =
-                      (allSlots[dateStr] ?? []).length === 0;
+                  {dateStrs.map((dateStr) => {
+                    const isClosed = (allSlots[dateStr] ?? []).length === 0;
                     const hasSlot =
                       allSlotsMap.get(dateStr)?.has(time) ?? false;
                     const isAvailable =
                       availableMap.get(dateStr)?.has(time) ?? false;
                     const slotIso = slotMap.get(`${dateStr}|${time}`);
-                    const isPast =
-                      slotIso ? new Date(slotIso).getTime() < nowMs : false;
+                    const isPast = slotIso
+                      ? new Date(slotIso).getTime() < nowMs
+                      : false;
                     const isSelected = slotIso === selectedSlot;
 
+                    // Closed day
                     if (isClosed) {
                       return (
                         <div
@@ -275,14 +264,15 @@ export function WeeklyCalendar({
                           className="bg-[#f5f2ed] flex items-center justify-center min-h-[36px]"
                         >
                           {rowIdx === Math.floor(allTimeLabels.length / 2) && (
-                            <span className="text-[10px] text-[#c4bfb8] rotate-0">
-                              定休日
+                            <span className="text-[10px] text-[#c4bfb8]">
+                              定休
                             </span>
                           )}
                         </div>
                       );
                     }
 
+                    // No slot at this time for this day
                     if (!hasSlot) {
                       return (
                         <div
@@ -292,28 +282,44 @@ export function WeeklyCalendar({
                       );
                     }
 
+                    // Past or booked — unavailable
                     if (isPast || !isAvailable) {
                       return (
                         <div
                           key={`${dateStr}-${time}`}
-                          className="bg-[#f0ece7] flex items-center justify-center min-h-[36px] cursor-not-allowed"
+                          className="bg-[#f0ece7] flex flex-col items-center justify-center min-h-[36px] cursor-not-allowed"
                         >
-                          <span className="text-[10px] text-[#c4bfb8]">×</span>
+                          <span className="text-[10px] text-[#c0bbb5]">×</span>
+                          <span className="text-[9px] text-[#c0bbb5]">
+                            {time}
+                          </span>
                         </div>
                       );
                     }
 
+                    // Selected
+                    if (isSelected) {
+                      return (
+                        <button
+                          key={`${dateStr}-${time}`}
+                          onClick={() => slotIso && onSelect(slotIso)}
+                          className="bg-[#3a3632] text-white flex flex-col items-center justify-center min-h-[36px] transition-all"
+                        >
+                          <span className="text-[10px] font-semibold">●</span>
+                          <span className="text-[9px] font-medium">{time}</span>
+                        </button>
+                      );
+                    }
+
+                    // Available
                     return (
                       <button
                         key={`${dateStr}-${time}`}
                         onClick={() => slotIso && onSelect(slotIso)}
-                        className={`min-h-[36px] transition-all text-[11px] font-medium ${
-                          isSelected
-                            ? "bg-[#c8a84e] text-white"
-                            : "bg-[#faf9f7] text-[#6b6560] hover:bg-white hover:border-[#c8a84e] border border-transparent hover:border"
-                        }`}
+                        className="bg-[#c8a84e] text-white flex flex-col items-center justify-center min-h-[36px] transition-all hover:bg-[#a88b2f]"
                       >
-                        {isSelected ? "●" : "○"}
+                        <span className="text-[10px] font-semibold">○</span>
+                        <span className="text-[9px] font-medium">{time}</span>
                       </button>
                     );
                   })}
