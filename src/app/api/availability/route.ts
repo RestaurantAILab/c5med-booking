@@ -21,21 +21,40 @@ export async function GET(request: NextRequest) {
 
   const { storeId, date, courseId } = parsed.data;
 
-  const [store] = await db
-    .select()
-    .from(stores)
-    .where(eq(stores.id, storeId))
-    .limit(1);
+  let store, course;
+  try {
+    const [s] = await db
+      .select()
+      .from(stores)
+      .where(eq(stores.id, storeId))
+      .limit(1);
+    store = s;
+  } catch (err) {
+    console.error("DB query failed (stores):", err);
+    return NextResponse.json(
+      { error: "データベース接続エラー" },
+      { status: 500 }
+    );
+  }
 
   if (!store) {
     return NextResponse.json({ error: "Store not found" }, { status: 404 });
   }
 
-  const [course] = await db
-    .select()
-    .from(courses)
-    .where(eq(courses.id, courseId))
-    .limit(1);
+  try {
+    const [c] = await db
+      .select()
+      .from(courses)
+      .where(eq(courses.id, courseId))
+      .limit(1);
+    course = c;
+  } catch (err) {
+    console.error("DB query failed (courses):", err);
+    return NextResponse.json(
+      { error: "データベース接続エラー" },
+      { status: 500 }
+    );
+  }
 
   if (!course) {
     return NextResponse.json({ error: "Course not found" }, { status: 404 });
@@ -65,12 +84,21 @@ export async function GET(request: NextRequest) {
   if (cached && cached.expiresAt > Date.now()) {
     busyPeriods = cached.data as Awaited<ReturnType<typeof getAvailability>>;
   } else {
-    busyPeriods = await getAvailability(
-      store.calendarId,
-      date,
-      store.timezone
-    );
-    cache.set(cacheKey, { data: busyPeriods, expiresAt: Date.now() + 60_000 });
+    try {
+      busyPeriods = await getAvailability(
+        store.calendarId,
+        date,
+        store.timezone
+      );
+      cache.set(cacheKey, {
+        data: busyPeriods,
+        expiresAt: Date.now() + 60_000,
+      });
+    } catch (err) {
+      console.error("FreeBusy query failed:", err);
+      // Calendar APIエラー時はスロット生成結果をそのまま返す（予約時に再チェック）
+      return NextResponse.json({ slots });
+    }
   }
 
   const available = filterAvailableSlots(slots, busyPeriods);

@@ -54,10 +54,14 @@ export function BookingWidget({
       const res = await fetch(
         `/api/availability?storeId=${storeId}&date=${selectedDate}&courseId=${selectedCourse.id}`
       );
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
       const data = await res.json();
       setSlots(data.slots ?? []);
-    } catch {
-      setError("空き状況の取得に失敗しました");
+    } catch (err) {
+      console.error("Availability fetch failed:", err);
+      setError("空き状況の取得に失敗しました。再度お試しください。");
     } finally {
       setSlotsLoading(false);
     }
