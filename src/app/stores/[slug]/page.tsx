@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stores } from "@/lib/db/schema";
@@ -124,11 +125,15 @@ export default async function StorePage({
       {/* ===== HEADER ===== */}
       <header className="sticky top-0 z-50 bg-white/92 backdrop-blur-md border-b border-[#f0ece7]">
         <div className="max-w-[1080px] mx-auto px-6 py-3.5 flex items-center justify-between">
-          <Link
-            href="/"
-            className="font-[family-name:var(--font-cormorant)] text-[22px] font-medium text-[#a88b2f] tracking-wide"
-          >
-            C5med Beauty
+          <Link href="/" className="block">
+            <Image
+              src="/images/logo.png"
+              alt="C5med Beauty"
+              width={140}
+              height={36}
+              className="h-8 w-auto"
+              priority
+            />
           </Link>
           <span className="text-[13px] text-[#6b6560] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#7d9e82] inline-block" />
@@ -138,9 +143,15 @@ export default async function StorePage({
       </header>
 
       {/* ===== 1. HERO ===== */}
-      <section className="bg-gradient-to-br from-[#f5f0eb] via-[#faf9f7] to-[#f0f5f1] py-20 sm:py-24 px-6 text-center relative overflow-hidden">
-        <div className="absolute -top-[120px] -right-[60px] w-[300px] h-[300px] rounded-full bg-[rgba(125,158,130,0.06)]" />
-        <div className="absolute -bottom-[80px] -left-[40px] w-[200px] h-[200px] rounded-full bg-[rgba(181,145,123,0.06)]" />
+      <section className="relative py-20 sm:py-24 px-6 text-center overflow-hidden">
+        <Image
+          src="/images/hero.jpg"
+          alt=""
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]" />
         <div className="relative z-10 max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-1.5 bg-[#e8f0e9] text-[#7d9e82] text-xs font-semibold px-4 py-1.5 rounded-full mb-6 tracking-wide">
             <svg
@@ -187,21 +198,33 @@ export default async function StorePage({
 
       {/* ===== 2. 美しさへの思い ===== */}
       <section className="py-20 px-6">
-        <div className="max-w-[680px] mx-auto text-center">
-          <p className="text-[11px] font-semibold text-[#c8a84e] tracking-[0.2em] uppercase mb-3">
-            Our Philosophy
-          </p>
-          <h2 className="text-xl sm:text-2xl font-bold text-[#3a3632] mb-6">
-            美しさへの思い
-          </h2>
-          <div className="w-8 h-px bg-[#c8a84e] mx-auto mb-8" />
-          <p className="text-[14px] sm:text-[15px] text-[#6b6560] leading-[1.9] mb-5">
-            話題の幹細胞培養上清液の力を最大限に引き出す最新技術を導入。
-            お肌に優しい施術、そして内側から育てていく本当の美しさを目指していきます。
-          </p>
-          <p className="text-[14px] sm:text-[15px] text-[#6b6560] leading-[1.9]">
-            従来の保湿、抗酸化などではなく幹細胞上清液の成長因子のチカラで内側から生き生きとしたお肌、代謝の高いお身体をつくっていきます。
-          </p>
+        <div className="max-w-[900px] mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 items-center">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(58,54,50,0.1)]">
+              <Image
+                src="/images/beauty-skin.jpg"
+                alt="美しさへの思い"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="text-center sm:text-left">
+              <p className="text-[11px] font-semibold text-[#c8a84e] tracking-[0.2em] uppercase mb-3">
+                Our Philosophy
+              </p>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#3a3632] mb-6">
+                美しさへの思い
+              </h2>
+              <div className="w-8 h-px bg-[#c8a84e] mb-8 mx-auto sm:mx-0" />
+              <p className="text-[14px] sm:text-[15px] text-[#6b6560] leading-[1.9] mb-5">
+                話題の幹細胞培養上清液の力を最大限に引き出す最新技術を導入。
+                お肌に優しい施術、そして内側から育てていく本当の美しさを目指していきます。
+              </p>
+              <p className="text-[14px] sm:text-[15px] text-[#6b6560] leading-[1.9]">
+                従来の保湿、抗酸化などではなく幹細胞上清液の成長因子のチカラで内側から生き生きとしたお肌、代謝の高いお身体をつくっていきます。
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -218,38 +241,59 @@ export default async function StorePage({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="bg-white border border-[#f0ece7] rounded-xl p-7 shadow-[0_1px_3px_rgba(58,54,50,0.06)] hover:shadow-[0_4px_12px_rgba(58,54,50,0.08)] hover:-translate-y-0.5 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-[#e8f0e9] flex items-center justify-center text-xl mb-5">
-                🧬
+            <div className="bg-white border border-[#f0ece7] rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(58,54,50,0.06)] hover:shadow-[0_4px_12px_rgba(58,54,50,0.08)] hover:-translate-y-0.5 transition-all">
+              <div className="relative aspect-[16/10]">
+                <Image
+                  src="/images/stem-cell.jpg"
+                  alt="幹細胞培養上清液"
+                  fill
+                  className="object-cover"
+                />
               </div>
-              <h3 className="font-bold text-[15px] text-[#3a3632] mb-3">
-                自社製造の幹細胞培養上清液
-              </h3>
-              <p className="text-[13px] text-[#6b6560] leading-relaxed">
-                ヒト由来の幹細胞培養施設を保有。医療点滴で使用している濃度で冷凍にて出荷。施術直前に解凍して使用することで上清液の成分を安全に効果的に届けることが可能。
-              </p>
+              <div className="p-6">
+                <h3 className="font-bold text-[15px] text-[#3a3632] mb-3">
+                  自社製造の幹細胞培養上清液
+                </h3>
+                <p className="text-[13px] text-[#6b6560] leading-relaxed">
+                  ヒト由来の幹細胞培養施設を保有。医療点滴で使用している濃度で冷凍にて出荷。施術直前に解凍して使用することで上清液の成分を安全に効果的に届けることが可能。
+                </p>
+              </div>
             </div>
-            <div className="bg-white border border-[#f0ece7] rounded-xl p-7 shadow-[0_1px_3px_rgba(58,54,50,0.06)] hover:shadow-[0_4px_12px_rgba(58,54,50,0.08)] hover:-translate-y-0.5 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-[#fef8ea] flex items-center justify-center text-xl mb-5">
-                💉
+            <div className="bg-white border border-[#f0ece7] rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(58,54,50,0.06)] hover:shadow-[0_4px_12px_rgba(58,54,50,0.08)] hover:-translate-y-0.5 transition-all">
+              <div className="relative aspect-[16/10]">
+                <Image
+                  src="/images/facial.jpg"
+                  alt="針ナシ注射"
+                  fill
+                  className="object-cover"
+                />
               </div>
-              <h3 className="font-bold text-[15px] text-[#3a3632] mb-3">
-                針ナシ注射による高速導入
-              </h3>
-              <p className="text-[13px] text-[#6b6560] leading-relaxed">
-                水光注射の原理を針を刺すことなく実現。お肌の表面ではなく深部組織まで美容成分を届ける。痛みが少なく、ダウンタイムほぼゼロ。施術後すぐにメイクや外出も可能。
-              </p>
+              <div className="p-6">
+                <h3 className="font-bold text-[15px] text-[#3a3632] mb-3">
+                  針ナシ注射による高速導入
+                </h3>
+                <p className="text-[13px] text-[#6b6560] leading-relaxed">
+                  水光注射の原理を針を刺すことなく実現。お肌の表面ではなく深部組織まで美容成分を届ける。痛みが少なく、ダウンタイムほぼゼロ。施術後すぐにメイクや外出も可能。
+                </p>
+              </div>
             </div>
-            <div className="bg-white border border-[#f0ece7] rounded-xl p-7 shadow-[0_1px_3px_rgba(58,54,50,0.06)] hover:shadow-[0_4px_12px_rgba(58,54,50,0.08)] hover:-translate-y-0.5 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-[#eef2fa] flex items-center justify-center text-xl mb-5">
-                ✨
+            <div className="bg-white border border-[#f0ece7] rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(58,54,50,0.06)] hover:shadow-[0_4px_12px_rgba(58,54,50,0.08)] hover:-translate-y-0.5 transition-all">
+              <div className="relative aspect-[16/10]">
+                <Image
+                  src="/images/treatment.jpg"
+                  alt="近赤外線テクノロジー"
+                  fill
+                  className="object-cover"
+                />
               </div>
-              <h3 className="font-bold text-[15px] text-[#3a3632] mb-3">
-                近赤外線×音響振動テクノロジー
-              </h3>
-              <p className="text-[13px] text-[#6b6560] leading-relaxed">
-                高輝度近赤外LEDと音響振動で血管拡張・血流促進。美容成分の浸透をサポート。レーザーのような熱刺激がなく安全で快適。
-              </p>
+              <div className="p-6">
+                <h3 className="font-bold text-[15px] text-[#3a3632] mb-3">
+                  近赤外線×音響振動テクノロジー
+                </h3>
+                <p className="text-[13px] text-[#6b6560] leading-relaxed">
+                  高輝度近赤外LEDと音響振動で血管拡張・血流促進。美容成分の浸透をサポート。レーザーのような熱刺激がなく安全で快適。
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -527,9 +571,13 @@ export default async function StorePage({
 
       {/* ===== 9. FOOTER ===== */}
       <footer className="border-t border-[#f0ece7] py-10 text-center">
-        <p className="font-[family-name:var(--font-cormorant)] text-lg text-[#c8a84e] mb-1">
-          C5med Beauty
-        </p>
+        <Image
+          src="/images/logo.png"
+          alt="C5med Beauty"
+          width={120}
+          height={32}
+          className="h-7 w-auto mx-auto mb-2"
+        />
         <p className="text-[11px] text-[#9e9893] mb-1">
           運営: MKメディカル合同会社
         </p>
