@@ -16,8 +16,17 @@ export async function getAvailability(
   date: string,
   timezone: string
 ): Promise<BusyPeriod[]> {
-  const timeMin = `${date}T00:00:00`;
-  const timeMax = `${date}T23:59:59`;
+  return getAvailabilityRange(calendarId, date, date, timezone);
+}
+
+export async function getAvailabilityRange(
+  calendarId: string,
+  startDate: string,
+  endDate: string,
+  timezone: string
+): Promise<BusyPeriod[]> {
+  const timeMin = `${startDate}T00:00:00`;
+  const timeMax = `${endDate}T23:59:59`;
 
   const calendar = getCalendarClient();
   const res = await calendar.freebusy.query({

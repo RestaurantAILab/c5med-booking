@@ -12,7 +12,8 @@ export const bookingSchema = z.object({
 
 export const availabilityQuerySchema = z.object({
   storeId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   courseId: z.coerce.number().int().positive(),
 });
 

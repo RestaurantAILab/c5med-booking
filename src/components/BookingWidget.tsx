@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { CourseList } from "./CourseList";
-import { Calendar } from "./Calendar";
-import { TimeSlots } from "./TimeSlots";
+import { WeeklyCalendar } from "./WeeklyCalendar";
 import { BookingForm, type BookingFormData } from "./BookingForm";
 import { BookingConfirmation } from "./BookingConfirmation";
 
@@ -17,9 +16,7 @@ type Course = {
   tags: string[] | null;
 };
 
-type Slot = { start: string; end: string };
-
-type Step = "course" | "date" | "time" | "form" | "done";
+type Step = "course" | "datetime" | "form" | "done";
 
 export function BookingWidget({
   storeId,
@@ -31,10 +28,7 @@ export function BookingWidget({
   const [step, setStep] = useState<Step>("course");
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -46,42 +40,10 @@ export function BookingWidget({
       .catch(() => setError("コースの取得に失敗しました"));
   }, [storeId]);
 
-  const loadSlots = useCallback(async () => {
-    if (!selectedDate || !selectedCourse) return;
-    setSlotsLoading(true);
-    setSlots([]);
-    try {
-      const res = await fetch(
-        `/api/availability?storeId=${storeId}&date=${selectedDate}&courseId=${selectedCourse.id}`
-      );
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
-      }
-      const data = await res.json();
-      setSlots(data.slots ?? []);
-    } catch (err) {
-      console.error("Availability fetch failed:", err);
-      setError("空き状況の取得に失敗しました。再度お試しください。");
-    } finally {
-      setSlotsLoading(false);
-    }
-  }, [storeId, selectedDate, selectedCourse]);
-
-  useEffect(() => {
-    loadSlots();
-  }, [loadSlots]);
-
   const handleCourseSelect = (course: Course) => {
     setSelectedCourse(course);
-    setSelectedDate(null);
     setSelectedSlot(null);
-    setStep("date");
-  };
-
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setSelectedSlot(null);
-    setStep("time");
+    setStep("datetime");
   };
 
   const handleSlotSelect = (startTime: string) => {
@@ -122,15 +84,14 @@ export function BookingWidget({
 
   const stepLabels: { key: Step; label: string }[] = [
     { key: "course", label: "コース" },
-    { key: "date", label: "日付" },
-    { key: "time", label: "時間" },
+    { key: "datetime", label: "日時" },
     { key: "form", label: "情報入力" },
   ];
 
   const currentIdx = stepLabels.findIndex((s) => s.key === step);
 
   return (
-    <div className="bg-white border border-[#e8e4df] rounded-2xl p-8 sm:p-8 shadow-[0_8px_24px_rgba(58,54,50,0.1)]">
+    <div className="bg-white border border-[#e8e4df] rounded-2xl p-6 sm:p-8 shadow-[0_8px_24px_rgba(58,54,50,0.1)]">
       {/* Progress steps */}
       {step !== "done" && (
         <div className="flex items-center justify-between mb-8 pb-6 border-b border-[#f0ece7]">
@@ -164,7 +125,7 @@ export function BookingWidget({
               </button>
               {i < stepLabels.length - 1 && (
                 <div
-                  className={`w-8 sm:w-12 h-px mx-2 ${
+                  className={`w-12 sm:w-16 h-px mx-3 ${
                     i < currentIdx ? "bg-[#e8f0e9]" : "bg-[#f0ece7]"
                   }`}
                 />
@@ -194,16 +155,12 @@ export function BookingWidget({
         />
       )}
 
-      {step === "date" && (
-        <Calendar selectedDate={selectedDate} onSelect={handleDateSelect} />
-      )}
-
-      {step === "time" && (
-        <TimeSlots
-          slots={slots}
+      {step === "datetime" && selectedCourse && (
+        <WeeklyCalendar
+          storeId={storeId}
+          courseId={selectedCourse.id}
           selectedSlot={selectedSlot}
           onSelect={handleSlotSelect}
-          loading={slotsLoading}
         />
       )}
 
