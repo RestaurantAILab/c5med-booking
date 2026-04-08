@@ -12,7 +12,7 @@ const storeData = [
     name: "新神戸店",
     address: "兵庫県神戸市中央区",
     timezone: "Asia/Tokyo",
-    calendarId: "shin-kobe@c5med.example.com",
+    calendarId: "5949a8cbdc44878030d3660d4a42a545c660d64bd5c63ccb21ac6d08e9111cd8@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-19:00"],
       tue: ["10:00-19:00"],
@@ -29,7 +29,7 @@ const storeData = [
     name: "札幌西11丁目店",
     address: "北海道札幌市中央区",
     timezone: "Asia/Tokyo",
-    calendarId: "sapporo-nishi11@c5med.example.com",
+    calendarId: "65610c0322ae762efa23b4130f3a9a3fdb43baa00d18a912be672c4aed15ac95@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-19:00"],
       tue: ["10:00-19:00"],
@@ -46,7 +46,7 @@ const storeData = [
     name: "札幌北2条店",
     address: "北海道札幌市中央区北2条",
     timezone: "Asia/Tokyo",
-    calendarId: "sapporo-kita2@c5med.example.com",
+    calendarId: "4463588576869cfe54c0c1076e98816d9e7e45271f7c20ee53d78dd0c7eed054@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-19:00"],
       tue: ["10:00-19:00"],
@@ -63,7 +63,7 @@ const storeData = [
     name: "名古屋ヒルトン店",
     address: "愛知県名古屋市中村区",
     timezone: "Asia/Tokyo",
-    calendarId: "nagoya-hilton@c5med.example.com",
+    calendarId: "a08ef7bb32ffa1532b257cbe820338bc1d1c1630c046d23beb362e3b65298997@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-19:00"],
       tue: ["10:00-19:00"],
@@ -80,7 +80,7 @@ const storeData = [
     name: "京都店",
     address: "京都府京都市中京区",
     timezone: "Asia/Tokyo",
-    calendarId: "kyoto@c5med.example.com",
+    calendarId: "ed7390c5164439e167e201361ddb9333fafeaaecb502dfd2b61bdfc33542251a@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-19:00"],
       tue: ["10:00-19:00"],
@@ -97,7 +97,7 @@ const storeData = [
     name: "新橋店",
     address: "東京都港区新橋",
     timezone: "Asia/Tokyo",
-    calendarId: "shimbashi@c5med.example.com",
+    calendarId: "e644b570682a99c2dac93cbba2e669218cf24deda234255b2b8a158f565c54a8@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-19:00"],
       tue: ["10:00-19:00"],
@@ -114,7 +114,7 @@ const storeData = [
     name: "福岡 C5クリニック内",
     address: "福岡県福岡市中央区",
     timezone: "Asia/Tokyo",
-    calendarId: "fukuoka-c5clinic@c5med.example.com",
+    calendarId: "dd1e679dfe4a618e5bf5d21cc367dad62ea40cf2f288074652f698894064b8d1@group.calendar.google.com",
     businessHours: {
       mon: ["10:00-13:00", "14:00-19:00"],
       tue: ["10:00-13:00", "14:00-19:00"],
