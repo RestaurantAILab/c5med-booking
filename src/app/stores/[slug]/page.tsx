@@ -1,24 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stores } from "@/lib/db/schema";
 import type { BusinessHours } from "@/lib/db/schema";
 import { BookingWidget } from "@/components/BookingWidget";
 import { FAQ } from "@/components/FAQ";
 
-export const revalidate = 3600;
-
-const ALL_STORES = [
-  { id: "shin-kobe", name: "新神戸店" },
-  { id: "sapporo-nishi11", name: "札幌西11丁目店" },
-  { id: "sapporo-kita2", name: "札幌北2条店" },
-  { id: "nagoya-hilton", name: "名古屋ヒルトン店" },
-  { id: "kyoto", name: "京都店" },
-  { id: "shimbashi", name: "新橋店" },
-  { id: "fukuoka-c5clinic", name: "福岡 C5クリニック内" },
-];
+// force-dynamic: admin 側の店舗変更を即反映させたい & Neon HTTP は build時に届かないことがある
+export const dynamic = "force-dynamic";
 
 const FAQ_ITEMS = [
   {
@@ -43,12 +34,13 @@ const FAQ_ITEMS = [
   },
   {
     question: "予約のキャンセルはできますか？",
-    answer:
-      "はい、お電話またはLINEにてキャンセルを承ります。",
+    answer: "はい、お電話またはLINEにてキャンセルを承ります。",
   },
 ];
 
-const DOW_LABELS: Record<string, string> = {
+type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+const DOW_ORDER: DayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const DOW_LABELS: Record<DayKey, string> = {
   mon: "月",
   tue: "火",
   wed: "水",
@@ -58,20 +50,18 @@ const DOW_LABELS: Record<string, string> = {
   sun: "日",
 };
 
-function getClosedDays(bh: BusinessHours): string[] {
-  const closed: string[] = [];
-  for (const [key, label] of Object.entries(DOW_LABELS)) {
-    const ranges = bh[key as keyof Omit<BusinessHours, "slot_interval_min">];
-    if (Array.isArray(ranges) && ranges.length === 0) {
-      closed.push(label);
-    }
-  }
-  return closed;
+function formatDayHours(ranges: string[] | undefined): string {
+  if (!ranges || ranges.length === 0) return "休み";
+  return ranges.join(" / ");
 }
 
-export async function generateStaticParams() {
-  return ALL_STORES.map((s) => ({ slug: s.id }));
+function hasAnyHours(bh: BusinessHours): boolean {
+  return DOW_ORDER.some((d) => (bh[d] ?? []).length > 0);
 }
+
+// dynamic = "force-dynamic" のため generateStaticParams は不要（都度SSR）。
+// Neon HTTP が Next.js の build 環境から届かないことがあり、
+// 常に DB を見て admin 変更を即反映させたいのでこの形式にしている。
 
 export async function generateMetadata({
   params,
@@ -79,12 +69,24 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const store = ALL_STORES.find((s) => s.id === slug);
+  try {
+    const [store] = await db
+      .select({ name: stores.name })
+      .from(stores)
+      .where(eq(stores.id, slug))
+      .limit(1);
+    if (store) {
+      return {
+        title: `${store.name} | C5med Beauty メディカルエステ`,
+        description: `C5med Beauty ${store.name} — 幹細胞培養上清液使用のメディカルエステ。看護師在籍・医療提携サロン。`,
+      };
+    }
+  } catch {
+    // fall through
+  }
   return {
-    title: store
-      ? `${store.name} | C5med Beauty メディカルエステ`
-      : "C5med Beauty",
-    description: `C5med Beauty ${store?.name ?? ""} — 幹細胞培養上清液使用のメディカルエステ。看護師在籍・医療提携サロン。`,
+    title: "C5med Beauty",
+    description: "幹細胞培養上清液使用のメディカルエステ。",
   };
 }
 
@@ -95,30 +97,22 @@ export default async function StorePage({
 }) {
   const { slug } = await params;
 
-  let store;
-  try {
-    const [result] = await db
-      .select()
-      .from(stores)
-      .where(eq(stores.id, slug))
-      .limit(1);
-    store = result;
-  } catch {
-    const fallback = ALL_STORES.find((s) => s.id === slug);
-    if (!fallback) notFound();
-    store = {
-      id: fallback.id,
-      name: fallback.name,
-      address: null,
-      businessHours: null,
-    };
-  }
+  const [store] = await db
+    .select()
+    .from(stores)
+    .where(eq(stores.id, slug))
+    .limit(1);
 
   if (!store) notFound();
 
-  const closedDays = store.businessHours
-    ? getClosedDays(store.businessHours)
-    : [];
+  const otherStores = await db
+    .select({ id: stores.id, name: stores.name })
+    .from(stores)
+    .where(eq(stores.isActive, true))
+    .orderBy(asc(stores.id));
+
+  const bh = store.businessHours;
+  const hoursKnown = hasAnyHours(bh);
 
   return (
     <main className="flex-1">
@@ -510,7 +504,7 @@ export default async function StorePage({
                     店舗名
                   </td>
                   <td className="py-3 text-[14px] font-medium text-[#3a3632]">
-                    C5med Beauty {store.name}
+                    {store.name}
                   </td>
                 </tr>
                 {store.address && (
@@ -523,22 +517,68 @@ export default async function StorePage({
                     </td>
                   </tr>
                 )}
-                <tr className="border-b border-[#f0ece7]">
+                {store.nearestStation && (
+                  <tr className="border-b border-[#f0ece7]">
+                    <td className="py-3 text-[13px] text-[#9e9893] align-top">
+                      アクセス
+                    </td>
+                    <td className="py-3 text-[14px] text-[#3a3632]">
+                      {store.nearestStation}
+                    </td>
+                  </tr>
+                )}
+                {store.phone && (
+                  <tr className="border-b border-[#f0ece7]">
+                    <td className="py-3 text-[13px] text-[#9e9893] align-top">
+                      電話番号
+                    </td>
+                    <td className="py-3 text-[14px] text-[#3a3632]">
+                      <a
+                        href={`tel:${store.phone.replace(/[^\d+]/g, "")}`}
+                        className="hover:text-[#a88b2f] transition-colors"
+                      >
+                        {store.phone}
+                      </a>
+                    </td>
+                  </tr>
+                )}
+                <tr className={store.closedOnHolidays ? "border-b border-[#f0ece7]" : ""}>
                   <td className="py-3 text-[13px] text-[#9e9893] align-top">
                     営業時間
                   </td>
                   <td className="py-3 text-[14px] text-[#3a3632]">
-                    10:00〜19:00
+                    {hoursKnown ? (
+                      <dl className="grid grid-cols-[2.5rem_1fr] gap-y-1 text-[13px]">
+                        {DOW_ORDER.map((day) => {
+                          const ranges = bh[day];
+                          const closed = !ranges || ranges.length === 0;
+                          return (
+                            <div key={day} className="contents">
+                              <dt className="text-[#9e9893]">
+                                {DOW_LABELS[day]}
+                              </dt>
+                              <dd
+                                className={
+                                  closed ? "text-[#9e9893]" : "text-[#3a3632]"
+                                }
+                              >
+                                {formatDayHours(ranges)}
+                              </dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    ) : (
+                      <span className="text-[#9e9893]">調整中</span>
+                    )}
                   </td>
                 </tr>
-                {closedDays.length > 0 && (
+                {store.closedOnHolidays && (
                   <tr>
                     <td className="py-3 text-[13px] text-[#9e9893] align-top">
-                      定休日
+                      祝日
                     </td>
-                    <td className="py-3 text-[14px] text-[#3a3632]">
-                      毎週{closedDays.join("・")}曜日
-                    </td>
+                    <td className="py-3 text-[14px] text-[#3a3632]">休み</td>
                   </tr>
                 )}
               </tbody>
@@ -546,26 +586,28 @@ export default async function StorePage({
           </div>
 
           {/* Other stores */}
-          <div className="mt-12 text-center">
-            <h3 className="text-sm font-semibold text-[#6b6560] mb-4">
-              他の店舗を見る
-            </h3>
-            <div className="flex flex-wrap justify-center gap-2">
-              {ALL_STORES.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/stores/${s.id}`}
-                  className={`px-[18px] py-2 border rounded-full text-[13px] transition-all ${
-                    s.id === slug
-                      ? "border-[#c8a84e] text-[#a88b2f] font-semibold bg-white"
-                      : "border-[#e8e4df] text-[#6b6560] bg-white hover:border-[#e2cf8e] hover:text-[#a88b2f]"
-                  }`}
-                >
-                  {s.name}
-                </Link>
-              ))}
+          {otherStores.length > 1 && (
+            <div className="mt-12 text-center">
+              <h3 className="text-sm font-semibold text-[#6b6560] mb-4">
+                他の店舗を見る
+              </h3>
+              <div className="flex flex-wrap justify-center gap-2">
+                {otherStores.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/stores/${s.id}`}
+                    className={`px-[18px] py-2 border rounded-full text-[13px] transition-all ${
+                      s.id === slug
+                        ? "border-[#c8a84e] text-[#a88b2f] font-semibold bg-white"
+                        : "border-[#e8e4df] text-[#6b6560] bg-white hover:border-[#e2cf8e] hover:text-[#a88b2f]"
+                    }`}
+                  >
+                    {s.name}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
