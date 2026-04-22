@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { courses, storeCourses } from "@/lib/db/schema";
 
@@ -22,11 +22,12 @@ export async function GET(request: NextRequest) {
       durationMin: courses.durationMin,
       price: courses.price,
       tags: courses.tags,
+      imageUrl: courses.imageUrl,
       sortOrder: courses.sortOrder,
     })
     .from(storeCourses)
     .innerJoin(courses, eq(storeCourses.courseId, courses.id))
-    .where(eq(storeCourses.storeId, storeId))
+    .where(and(eq(storeCourses.storeId, storeId), eq(courses.isActive, true)))
     .orderBy(courses.sortOrder);
 
   return NextResponse.json({ courses: result });

@@ -14,6 +14,7 @@ type Course = {
   durationMin: number;
   price: number;
   tags: string[] | null;
+  imageUrl?: string | null;
 };
 
 type Step = "course" | "datetime" | "form" | "done";

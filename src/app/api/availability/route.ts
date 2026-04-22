@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { stores, courses } from "@/lib/db/schema";
+import { stores, courses, storeHolidays } from "@/lib/db/schema";
 import { availabilityQuerySchema } from "@/lib/validations";
 import { generateSlots, filterAvailableSlots } from "@/lib/slot-generator";
 import { getAvailabilityRange } from "@/lib/google-calendar";
+
+async function getHolidayDatesInRange(
+  storeId: string,
+  startDate: string,
+  endDate: string
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ date: storeHolidays.date })
+    .from(storeHolidays)
+    .where(
+      and(
+        eq(storeHolidays.storeId, storeId),
+        gte(storeHolidays.date, startDate),
+        lte(storeHolidays.date, endDate)
+      )
+    );
+  return new Set(rows.map((r) => r.date));
+}
 
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
 
@@ -79,11 +97,21 @@ export async function GET(request: NextRequest) {
     const dates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const endDate = dates[6];
 
-    // Generate slots for each day
+    const holidays = await getHolidayDatesInRange(
+      store.id,
+      weekStart,
+      endDate
+    ).catch(() => new Set<string>());
+
+    // Generate slots for each day (skip holiday dates)
     const allSlots: Record<string, { start: string; end: string }[]> = {};
     const availableSlots: Record<string, { start: string; end: string }[]> = {};
 
     for (const d of dates) {
+      if (holidays.has(d)) {
+        allSlots[d] = [];
+        continue;
+      }
       allSlots[d] = generateSlots(
         store.businessHours,
         d,
@@ -139,6 +167,15 @@ export async function GET(request: NextRequest) {
 
   // Single day mode (backward compatible)
   const singleDate = date!;
+  const singleHolidays = await getHolidayDatesInRange(
+    store.id,
+    singleDate,
+    singleDate
+  ).catch(() => new Set<string>());
+  if (singleHolidays.has(singleDate)) {
+    return NextResponse.json({ slots: [] });
+  }
+
   const slots = generateSlots(
     store.businessHours,
     singleDate,
